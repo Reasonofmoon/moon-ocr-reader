@@ -33,7 +33,7 @@ class OcrEngine {
     this.scheduler = Tesseract.createScheduler();
 
     // Create workers
-    const workerCount = lang.includes('+') ? 1 : Math.min(this.workerCount, 2);
+    const workerCount = lang.includes('+') ? Math.min(this.workerCount, 2) : Math.min(this.workerCount, 4);
     
     for (let i = 0; i < workerCount; i++) {
       onProgress((i + 1) / (workerCount + 1), `언어 모델 로딩 중 (${i + 1}/${workerCount})...`);
@@ -99,28 +99,30 @@ class OcrEngine {
    * @returns {Promise<Array>}
    */
   async recognizeBatch(images, onImageStart = () => {}, onImageComplete = () => {}, onProgress = () => {}) {
-    const results = [];
     const total = images.length;
+    let completed = 0;
 
-    for (let i = 0; i < total; i++) {
-      const { file, id } = images[i];
-      
+    // Submit all jobs to the scheduler simultaneously for parallel processing.
+    // The scheduler automatically distributes work across available workers.
+    const promises = images.map(({ file, id }, i) => {
       onImageStart(id, i, total);
-      onProgress((i / total), `이미지 ${i + 1}/${total} 처리 중...`);
 
-      try {
-        const result = await this.recognizeImage(file);
-        results.push({ id, filename: file.name, ...result, error: null });
-        onImageComplete(id, result, i, total);
-      } catch (err) {
-        results.push({ id, filename: file.name, text: '', confidence: 0, error: err.message });
-        onImageComplete(id, null, i, total);
-      }
+      return this.recognizeImage(file)
+        .then(result => {
+          completed++;
+          onProgress(completed / total, `이미지 ${completed}/${total} 완료`);
+          onImageComplete(id, result, i, total);
+          return { id, filename: file.name, ...result, error: null };
+        })
+        .catch(err => {
+          completed++;
+          onProgress(completed / total, `이미지 ${completed}/${total} 완료`);
+          onImageComplete(id, null, i, total);
+          return { id, filename: file.name, text: '', confidence: 0, error: err.message };
+        });
+    });
 
-      onProgress(((i + 1) / total), `이미지 ${i + 1}/${total} 완료`);
-    }
-
-    return results;
+    return Promise.all(promises);
   }
 
   /**
