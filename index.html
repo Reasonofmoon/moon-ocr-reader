@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Moon OCR Reader — 이미지 텍스트 추출기</title>
+  <meta name="description" content="이미지에서 텍스트를 추출하고 정리해주는 AI OCR 앱. 한국어/영어 지원, 브라우저 내 처리." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌙</text></svg>" />
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-content">
+        <div class="logo-group">
+          <span class="logo-icon">🌙</span>
+          <div>
+            <h1>Moon OCR Reader</h1>
+            <p class="subtitle">이미지 텍스트 추출기</p>
+          </div>
+        </div>
+        <div class="header-controls">
+          <select id="language-select" title="OCR 언어 선택">
+            <option value="eng">English</option>
+            <option value="kor" selected>한국어</option>
+            <option value="eng+kor">English + 한국어</option>
+            <option value="jpn">日本語</option>
+            <option value="chi_sim">中文(简体)</option>
+          </select>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Upload Area -->
+      <section class="upload-section">
+        <div id="drop-zone" class="drop-zone">
+          <div class="drop-zone-content">
+            <div class="upload-icon-wrapper">
+              <svg class="upload-icon" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="8" y="12" width="48" height="40" rx="4" stroke="currentColor" stroke-width="2.5"/>
+                <path d="M8 40l12-12 8 8 16-16 12 12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="22" cy="24" r="4" stroke="currentColor" stroke-width="2.5"/>
+                <path d="M32 4v6M32 4l-4 4M32 4l4 4" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <p class="drop-text-primary">이미지를 드래그하거나 클릭하세요</p>
+            <p class="drop-text-secondary">PNG, JPG, WEBP, BMP 지원 · 여러 파일 동시 업로드 가능</p>
+            <p class="drop-text-hint">또는 <kbd>Ctrl+V</kbd>로 클립보드에서 붙여넣기</p>
+          </div>
+          <input type="file" id="file-input" accept="image/*" multiple hidden />
+        </div>
+      </section>
+
+      <!-- Image Preview Gallery -->
+      <section id="preview-section" class="preview-section hidden">
+        <div class="section-header">
+          <h2>📷 업로드된 이미지 <span id="image-count" class="badge">0</span></h2>
+          <div class="section-actions">
+            <button id="btn-clear-all" class="btn btn-ghost" title="전체 삭제">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M5.333 4V2.667a1.333 1.333 0 011.334-1.334h2.666a1.333 1.333 0 011.334 1.334V4m2 0v9.333a1.333 1.333 0 01-1.334 1.334H4.667a1.333 1.333 0 01-1.334-1.334V4h9.334z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              전체 삭제
+            </button>
+            <button id="btn-start-ocr" class="btn btn-primary">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M14 8A6 6 0 112 8a6 6 0 0112 0z" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3l2 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              텍스트 추출 시작
+            </button>
+          </div>
+        </div>
+        <div id="image-gallery" class="image-gallery"></div>
+      </section>
+
+      <!-- Progress Section -->
+      <section id="progress-section" class="progress-section hidden">
+        <div class="progress-card">
+          <div class="progress-header">
+            <div class="progress-spinner"></div>
+            <span id="progress-status">초기화 중...</span>
+          </div>
+          <div class="progress-bar-container">
+            <div id="progress-bar" class="progress-bar" style="width: 0%"></div>
+          </div>
+          <p id="progress-detail" class="progress-detail">OCR 엔진을 로드하고 있습니다</p>
+        </div>
+      </section>
+
+      <!-- Results Section -->
+      <section id="results-section" class="results-section hidden">
+        <div class="section-header">
+          <h2>📝 추출 결과</h2>
+          <div class="section-actions">
+            <button id="btn-copy-all" class="btn btn-ghost" title="전체 복사">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="5.333" y="5.333" width="9.333" height="9.333" rx="1.333" stroke="currentColor" stroke-width="1.5"/><path d="M3.333 10.667H2.667A1.333 1.333 0 011.333 9.333V2.667A1.333 1.333 0 012.667 1.333h6.666A1.333 1.333 0 0110.667 2.667v.666" stroke="currentColor" stroke-width="1.5"/></svg>
+              전체 복사
+            </button>
+            <button id="btn-download-txt" class="btn btn-ghost" title="TXT 다운로드">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 10v2.667A1.333 1.333 0 003.333 14h9.334A1.333 1.333 0 0014 12.667V10M8 2v8m0 0L5 7m3 3l3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              TXT
+            </button>
+            <button id="btn-download-md" class="btn btn-ghost" title="MD 다운로드">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 10v2.667A1.333 1.333 0 003.333 14h9.334A1.333 1.333 0 0014 12.667V10M8 2v8m0 0L5 7m3 3l3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              MD
+            </button>
+          </div>
+        </div>
+        <div id="results-container" class="results-container"></div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <p>Moon OCR Reader · Powered by Tesseract.js · 브라우저 내 처리 (서버 전송 없음)</p>
+    </footer>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
